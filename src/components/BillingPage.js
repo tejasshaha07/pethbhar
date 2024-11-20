@@ -33,7 +33,7 @@ const menuItems = [
   { code: 'B20', name: 'Burger', marathiName: 'बर्गर', price: 6 },
 ];
 
-const tables = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const tables = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 export default function BillingPage({ user, onLogout }) {
   const [selectedTable, setSelectedTable] = useState(null);
