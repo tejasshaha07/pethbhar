@@ -1,36 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  AppBar, 
-  Toolbar, 
-  Typography, 
-  Button, 
-  Container, 
-  Grid, 
-  Paper, 
-  List, 
-  ListItem, 
-  ListItemText, 
-  ListItemSecondaryAction,
-  IconButton,
-  Box,
-  Fade,
-  TextField,
-  Autocomplete,
-  InputAdornment,
-  Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+import React, { useState } from 'react';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Container,
+  Grid,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
-  Switch,
-  FormControlLabel
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  TextField,
+  Box,
+  Fade,
+  Autocomplete,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import PrintIcon from '@mui/icons-material/Print';
 import LogoutIcon from '@mui/icons-material/Logout';
 
@@ -45,209 +36,141 @@ const menuItems = [
 const tables = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 export default function BillingPage({ user, onLogout }) {
-  if (!user) {
-    return <div>Loading...</div>;
-  }
-
   const [selectedTable, setSelectedTable] = useState(null);
   const [tableOrders, setTableOrders] = useState({});
-  const [inputValue, setInputValue] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [useMarathi, setUseMarathi] = useState(true);
 
-  useEffect(() => {
-    const filteredSuggestions = menuItems.filter(item => 
-      item.code.toLowerCase().includes(inputValue.toLowerCase()) ||
-      item.name.toLowerCase().includes(inputValue.toLowerCase()) ||
-      item.marathiName.includes(inputValue)
-    );
-    setSuggestions(filteredSuggestions);
-  }, [inputValue]);
+  const frequentlyOrderedItems = ['T15', 'D23', 'C10']; // Frequently ordered item codes
 
-  const handleAddItem = (item) => {
-    if (!selectedTable) return;
-  
-    setTableOrders((prevOrders) => {
-      const tableOrder = prevOrders[selectedTable] || [];
-      const existingItemIndex = tableOrder.findIndex((i) => i.code === item.code);
-  
-      if (existingItemIndex >= 0) {
-        // Clone the existing table order to avoid direct mutation
-        const updatedOrder = tableOrder.map((orderItem, index) =>
-          index === existingItemIndex
-            ? { ...orderItem, quantity: orderItem.quantity + 1 }
-            : orderItem
-        );
-        return { ...prevOrders, [selectedTable]: updatedOrder };
-      } else {
-        return { ...prevOrders, [selectedTable]: [...tableOrder, { ...item, quantity: 1 }] };
-      }
-    });
-  
-    setInputValue('');
-  };
-  
-
-  const handleRemoveItem = (index) => {
-    setTableOrders((prevOrders) => {
-      const tableOrder = [...prevOrders[selectedTable]]; // Clone the current table's order
-      const item = tableOrder[index]; // Get the item to modify
-  
-      if (item.quantity > 1) {
-        // Reduce the quantity by 1
-        tableOrder[index] = { ...item, quantity: item.quantity - 1 };
-      } else {
-        // Remove the item from the order
-        tableOrder.splice(index, 1);
-      }
-  
-      // Update the state with the modified table order
-      return { ...prevOrders, [selectedTable]: tableOrder };
-    });
-  };
-  
-
-  const handleTableSelect = (tableNumber) => {
-    setSelectedTable(tableNumber);
-  };
-
-  const handleInputChange = (event, newInputValue) => {
-    setInputValue(newInputValue);
-  };
-
-  const handleInputKeyDown = (event) => {
-    if (event.key === 'Enter' && suggestions.length > 0) {
-      handleAddItem(suggestions[0]);
+  const handleAddRow = () => {
+    if (!selectedTable) {
+      alert(useMarathi ? 'कृपया टेबल निवडा' : 'Please select a table first');
+      return;
     }
+    setTableOrders((prevOrders) => ({
+      ...prevOrders,
+      [selectedTable]: [
+        ...(prevOrders[selectedTable] || []),
+        { code: '', name: '', quantity: 1, price: 0 },
+      ],
+    }));
   };
 
-  const handleGenerateInvoice = () => {
-    setIsInvoiceDialogOpen(true);
+  const handleAddFrequentItem = (code) => {
+    const selectedItem = menuItems.find((menuItem) => menuItem.code === code);
+    if (!selectedItem || !selectedTable) return;
+
+    setTableOrders((prevOrders) => {
+      const updatedOrders = [...(prevOrders[selectedTable] || [])];
+      const existingItemIndex = updatedOrders.findIndex((item) => item.code === code);
+
+      if (existingItemIndex >= 0) {
+        updatedOrders[existingItemIndex].quantity += 1;
+        updatedOrders[existingItemIndex].price =
+          updatedOrders[existingItemIndex].quantity * selectedItem.price;
+      } else {
+        updatedOrders.push({ ...selectedItem, quantity: 1 });
+      }
+
+      return { ...prevOrders, [selectedTable]: updatedOrders };
+    });
   };
 
-  const handleCloseInvoiceDialog = () => {
-    setIsInvoiceDialogOpen(false);
+  const handleRemoveRow = (index) => {
+    setTableOrders((prevOrders) => {
+      const updatedOrders = [...(prevOrders[selectedTable] || [])];
+      updatedOrders.splice(index, 1);
+      return { ...prevOrders, [selectedTable]: updatedOrders };
+    });
   };
 
-  const handlePrint = () => {
-    const printButtons = document.querySelectorAll('.no-print');
-    printButtons.forEach(button => button.style.display = 'none');
-    window.print();
-    printButtons.forEach(button => button.style.display = '');
+  const handleUpdateRow = (index, field, value) => {
+    setTableOrders((prevOrders) => {
+      const updatedOrders = [...(prevOrders[selectedTable] || [])];
+      const selectedItem = menuItems.find((item) => item.code === updatedOrders[index].code);
+
+      updatedOrders[index] = {
+        ...updatedOrders[index],
+        [field]:
+          field === 'quantity'
+            ? Math.max(1, parseInt(value) || 1) // Ensure quantity is at least 1
+            : value,
+        price:
+          field === 'quantity' && selectedItem
+            ? (parseInt(value) || 1) * selectedItem.price
+            : updatedOrders[index].price,
+      };
+
+      return { ...prevOrders, [selectedTable]: updatedOrders };
+    });
   };
 
-  const handleLanguageToggle = () => {
-    setUseMarathi(!useMarathi);
-  };
+  const handleGenerateInvoice = () => setIsInvoiceDialogOpen(true);
+  const handleCloseInvoiceDialog = () => setIsInvoiceDialogOpen(false);
 
   const currentOrder = selectedTable ? tableOrders[selectedTable] || [] : [];
-  const totalAmount = currentOrder.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalAmount = currentOrder.reduce(
+    (sum, item) => sum + (item.quantity || 0) * (item.price || 0),
+    0
+  );
+
+  const getTranslatedName = (code) => {
+    const item = menuItems.find((menuItem) => menuItem.code === code);
+    return item ? (useMarathi ? item.marathiName : item.name) : '';
+  };
 
   return (
     <div>
       <AppBar position="static">
-      <Toolbar>
-        <Typography variant="h6" style={{ flexGrow: 1 }}>
-          Restaurant Billing System
-        </Typography>
-        {user?.role === 'admin' && (
-            <>
-              <Button color="inherit">{useMarathi ? 'माल सूची' : 'Inventory'}</Button>
-              <Button color="inherit">{useMarathi ? 'व्यवस्थापन' : 'Admin'}</Button>
-            </>
-          )}
-        <Button
-          onClick={handleLanguageToggle}
-          style={{
-            border: "2px solid #ffffff",
-            padding: "5px 15px",
-            borderRadius: "5px",
-            boxShadow: "2px 2px 5px rgba(0, 0, 0, 0.3)",
-            backgroundColor: useMarathi ? "#f0f0f0" : "#ffffff",
-            color: useMarathi ? "#000000" : "#555555",
-            fontWeight: "bold",
-            transition: "transform 0.2s, box-shadow 0.2s",
-            cursor: "pointer",
-          }}
-          onMouseOver={(e) => {
-            e.target.style.transform = "translateY(-2px)";
-            e.target.style.boxShadow = "4px 4px 10px rgba(0, 0, 0, 0.4)";
-          }}
-          onMouseOut={(e) => {
-            e.target.style.transform = "translateY(0)";
-            e.target.style.boxShadow = "2px 2px 5px rgba(0, 0, 0, 0.3)";
-          }}
-        >
-          {useMarathi ? "मराठी" : "English"}
-        </Button>
-        <Button color="inherit" onClick={onLogout} startIcon={<LogoutIcon />}>
-          {useMarathi ? 'बाहेर पडा' : 'Logout'}
-        </Button>
-      </Toolbar>
-    </AppBar>
-
-
+        <Toolbar>
+          <Typography variant="h6" style={{ flexGrow: 1 }}>
+            {useMarathi ? 'रेस्टॉरंट बिलिंग सिस्टीम' : 'Restaurant Billing System'}
+          </Typography>
+          <Button
+            variant="contained"
+            style={{
+              backgroundColor: '#424242',
+              color: '#ffffff',
+              marginRight: '10px',
+              padding: '6px 16px',
+              fontWeight: 'bold',
+              borderRadius: '5px',
+            }}
+            onClick={() => setUseMarathi(!useMarathi)}
+          >
+            {useMarathi ? 'English' : 'मराठी'}
+          </Button>
+          <Button color="inherit" onClick={onLogout} startIcon={<LogoutIcon />}>
+            {useMarathi ? 'बाहेर पडा' : 'Logout'}
+          </Button>
+        </Toolbar>
+      </AppBar>
 
       <Container maxWidth="lg" style={{ marginTop: '2rem' }}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={3}>
             <Paper elevation={3} style={{ padding: '1rem' }}>
-              <Typography variant="h6" gutterBottom>
-                {useMarathi ? 'मेनू आयटम जोडा' : 'Add Menu Item'}
+              <Typography variant="h6">
+                {useMarathi ? 'सर्वाधिक मागवलेले' : 'Frequently Ordered'}
               </Typography>
-              {!selectedTable && (
-                <Alert severity="warning" style={{ marginBottom: '1rem' }}>
-                  {useMarathi ? 'कृपया मेनू आयटम जोडण्यापूर्वी टेबल निवडा.' : 'Please select a table before adding menu items.'}
-                </Alert>
-              )}
-              <Autocomplete
-                freeSolo
-                options={suggestions}
-                getOptionLabel={(option) => `${option.code} - ${useMarathi ? option.marathiName : option.name}`}
-                inputValue={inputValue}
-                value={null}
-                onInputChange={handleInputChange}
-                onChange={(event, newValue) => {
-                  if (newValue && typeof newValue === 'object') {
-                    handleAddItem(newValue);
-                    setInputValue('');
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField 
-                    {...params} 
-                    label={useMarathi ? "आयटम कोड किंवा नाव प्रविष्ट करा" : "Enter item code or name"}
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    InputProps={{
-                      ...params.InputProps,
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon />
-                        </InputAdornment>
-                      ),
-                    }}
-                    onKeyDown={handleInputKeyDown}
-                    disabled={!selectedTable}
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <li {...props}>
-                    <Typography variant="body1">
-                      {option.code} - {useMarathi ? option.marathiName : option.name}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary" style={{ marginLeft: 'auto' }}>
-                      ₹{option.price.toFixed(2)}
-                    </Typography>
-                  </li>
-                )}
-                disabled={!selectedTable}
-              />
+              {frequentlyOrderedItems.map((code) => (
+                <Button
+                  key={code}
+                  variant="contained"
+                  color="primary"
+                  fullWidth
+                  style={{ margin: '0.5rem 0' }}
+                  disabled={!selectedTable}
+                  onClick={() => handleAddFrequentItem(code)}
+                >
+                  {getTranslatedName(code)}
+                </Button>
+              ))}
             </Paper>
           </Grid>
-          <Grid item xs={12} md={6}>
+
+          <Grid item xs={12} md={9}>
             <Paper elevation={3} style={{ padding: '1rem' }}>
               <Typography variant="h6" gutterBottom>
                 {useMarathi ? 'टेबल निवड' : 'Table Selection'}
@@ -256,9 +179,9 @@ export default function BillingPage({ user, onLogout }) {
                 {tables.map((table) => (
                   <Fade in={true} key={table} style={{ transitionDelay: `${table * 50}ms` }}>
                     <Button
-                      variant={selectedTable === table ? "contained" : "outlined"}
+                      variant={selectedTable === table ? 'contained' : 'outlined'}
                       color="primary"
-                      onClick={() => handleTableSelect(table)}
+                      onClick={() => setSelectedTable(table)}
                       style={{ margin: '0.5rem' }}
                     >
                       {useMarathi ? `टेबल ${table}` : `Table ${table}`}
@@ -268,42 +191,95 @@ export default function BillingPage({ user, onLogout }) {
               </Box>
             </Paper>
           </Grid>
+
           <Grid item xs={12}>
             <Paper elevation={3} style={{ padding: '1rem', marginTop: '1rem' }}>
               <Typography variant="h6" gutterBottom>
-                {useMarathi 
+                {useMarathi
                   ? `सध्याची ऑर्डर - ${selectedTable ? `टेबल ${selectedTable}` : 'कोणतेही टेबल निवडलेले नाही'}`
-                  : `Current Order - ${selectedTable ? `Table ${selectedTable}` : 'No table selected'}`
-                }
+                  : `Current Order - ${selectedTable ? `Table ${selectedTable}` : 'No table selected'}`}
               </Typography>
-              <List>
-                {currentOrder.map((item, index) => (
-                  <ListItem key={index}>
-                    <ListItemText 
-                      primary={`${item.code} - ${useMarathi ? item.marathiName : item.name}`} 
-                      secondary={`₹${item.price} x ${item.quantity}`} 
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton edge="end" onClick={() => handleRemoveItem(index)}>
-                        <Typography>×</Typography>
-                      </IconButton>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                ))}
-              </List>
-              <Typography variant="h6" align="right" style={{ marginTop: '1rem' }}>
-                {useMarathi ? 'एकूण:' : 'Total:'} ₹{totalAmount.toFixed(2)}
-              </Typography>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{useMarathi ? 'आयटम कोड' : 'Item Code'}</TableCell>
+                    <TableCell>{useMarathi ? 'आयटम नाव' : 'Item Name'}</TableCell>
+                    <TableCell align="right">{useMarathi ? 'संख्या' : 'Quantity'}</TableCell>
+                    <TableCell align="right">{useMarathi ? 'किंमत' : 'Price'}</TableCell>
+                    <TableCell align="center">{useMarathi ? 'क्रिया' : 'Actions'}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {currentOrder.map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <Autocomplete
+                          options={menuItems}
+                          getOptionLabel={(option) => option.code}
+                          value={
+                            menuItems.find((menuItem) => menuItem.code === item.code) || null
+                          }
+                          onChange={(e, newValue) =>
+                            handleUpdateRow(index, 'code', newValue ? newValue.code : '')
+                          }
+                          renderInput={(params) => (
+                            <TextField {...params} variant="outlined" size="small" />
+                          )}
+                        />
+                      </TableCell>
+                      <TableCell>{getTranslatedName(item.code)}</TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          type="number"
+                          value={item.quantity || ''}
+                          onChange={(e) => handleUpdateRow(index, 'quantity', e.target.value)}
+                          variant="outlined"
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          type="number"
+                          value={item.price || ''}
+                          onChange={(e) => handleUpdateRow(index, 'price', e.target.value)}
+                          variant="outlined"
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton onClick={() => handleRemoveRow(index)}>
+                          <Typography>X</Typography>
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
               <Button
+                onClick={handleAddRow}
                 variant="contained"
                 color="primary"
-                fullWidth
                 style={{ marginTop: '1rem' }}
-                onClick={handleGenerateInvoice}
-                disabled={currentOrder.length === 0}
               >
-                {useMarathi ? 'बिल तयार करा' : 'Generate Invoice'}
+                {useMarathi ? 'आयटम जोडा' : 'Add Item'}
               </Button>
+              <Typography align="right" style={{ marginTop: '1rem', fontWeight: 'bold' }}>
+                {useMarathi ? 'एकूण रक्कम:' : 'Total Amount:'} ₹{totalAmount.toFixed(2)}
+              </Typography>
+              <Button
+              variant="contained"
+              style={{
+                marginTop: '1rem',
+                width: '100%',
+                backgroundColor: '#1976d2', // Blue color matching the AppBar
+                color: '#ffffff', // White text for contrast
+                fontWeight: 'bold',
+                fontSize: '16px',
+              }}
+              onClick={handleGenerateInvoice}
+            >
+              {useMarathi ? 'बिल तयार करा' : 'Generate Invoice'}
+            </Button>
             </Paper>
           </Grid>
         </Grid>
@@ -333,38 +309,68 @@ export default function BillingPage({ user, onLogout }) {
             <TableBody>
               {currentOrder.map((item, index) => (
                 <TableRow key={index}>
-                  <TableCell>{useMarathi ? item.marathiName : item.name}</TableCell>
+                  <TableCell>{getTranslatedName(item.code)}</TableCell>
                   <TableCell align="right">{item.quantity}</TableCell>
                   <TableCell align="right">₹{item.price.toFixed(2)}</TableCell>
-                  <TableCell align="right">₹{(item.price * item.quantity).toFixed(2)}</TableCell>
+                  <TableCell align="right">₹{(item.quantity * item.price).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
               <TableRow>
-                <TableCell colSpan={3} align="right"><strong>{useMarathi ? 'एकूण रक्कम' : 'Total'}</strong></TableCell>
-                <TableCell align="right"><strong>₹{totalAmount.toFixed(2)}</strong></TableCell>
+                <TableCell colSpan={3} align="right">
+                  <strong>{useMarathi ? 'एकूण रक्कम' : 'Total'}</strong>
+                </TableCell>
+                <TableCell align="right">
+                  <strong>₹{totalAmount.toFixed(2)}</strong>
+                </TableCell>
               </TableRow>
             </TableBody>
           </Table>
         </DialogContent>
-        <DialogActions className="no-print">
+        <DialogActions>
           <Button onClick={handleCloseInvoiceDialog} color="primary">
             {useMarathi ? 'बंद करा' : 'Close'}
           </Button>
-          <Button onClick={handlePrint} color="primary" startIcon={<PrintIcon />}>
+          <Button onClick={() => window.print()} color="primary" startIcon={<PrintIcon />}>
             {useMarathi ? 'प्रिंट करा' : 'Print'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <style>
-        {`
-          @media print {
-            .no-print {
-              display: none !important;
-            }
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: auto;
+            margin: 20mm;
           }
-        `}
-      </style>
+
+          body * {
+            visibility: hidden;
+          }
+
+          .MuiDialog-root,
+          .MuiDialog-root * {
+            visibility: visible;
+          }
+
+          .MuiDialog-root {
+            position: absolute;
+            left: 0;
+            top: 0;
+          }
+
+          .MuiDialogActions-root {
+            display: none;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .MuiContainer-root {
+            padding-left: 8px;
+            padding-right: 8px;
+          }
+        }
+      `}</style>
+
     </div>
   );
 }
