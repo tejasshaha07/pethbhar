@@ -4,6 +4,14 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 
 ## Available Scripts
 
+After Cloing The Repo
+
+### `npm install`
+
+and 
+
+### `npm install webpack webpack-cli --save-dev`
+
 In the project directory, you can run:
 
 ### `npm start`
